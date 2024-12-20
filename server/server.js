@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const { Server } = require('socket.io');
 const http = require('http');
+
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
@@ -11,18 +12,19 @@ app.use(express.json());
 
 const port = 3000;
 
-let waiting_User = [];
-
-
+let waitingUsers = [];
 const partners = new Map();
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
-    waiting_User.push(socket);
 
-    if (waiting_User.length >= 2) {
-        const user1 = waiting_User.shift();
-        const user2 = waiting_User.shift();
+    // Add the user to the waiting queue
+    waitingUsers.push(socket);
+
+    // Pair users if there are at least two waiting
+    if (waitingUsers.length >= 2) {
+        const user1 = waitingUsers.shift();
+        const user2 = waitingUsers.shift();
 
         partners.set(user1.id, user2.id);
         partners.set(user2.id, user1.id);
@@ -31,26 +33,70 @@ io.on('connection', (socket) => {
         user2.emit('paired', { partnerId: user1.id });
     }
 
+    // Handle WebRTC offer
     socket.on('offer', (data) => {
-        io.to(data.target).emit('offer', { sdp: data.sdp, from: socket.id });
+        const { target, sdp } = data;
+        io.to(target).emit('offer', { sdp, from: socket.id });
     });
 
+    // Handle WebRTC answer
     socket.on('answer', (data) => {
-        io.to(data.target).emit('answer', { sdp: data.sdp, from: socket.id });
+        const { target, sdp } = data;
+        io.to(target).emit('answer', { sdp, from: socket.id });
     });
 
+    // Handle ICE candidates
     socket.on('candidate', (data) => {
-        io.to(data.target).emit('candidate', { candidate: data.candidate, from: socket.id });
+        const { target, candidate } = data;
+        io.to(target).emit('candidate', { candidate, from: socket.id });
     });
 
+    // Handle chat messages
     socket.on('send-message', (data) => {
         const { message, target } = data;
         io.to(target).emit('receive-message', message);
     });
 
+    // Handle stream sharing (if applicable)
+    socket.on('send-stream', (data) => {
+        const { streamId } = data;
+        const partnerId = partners.get(socket.id);
+        if (partnerId) {
+            io.to(partnerId).emit('receive-stream', { streamId });
+        }
+    });
+
+    // Handle skipping user
+    socket.on('skip-user', () => {
+        console.log('User skipped:', socket.id);
+        const partnerId = partners.get(socket.id);
+
+        if (partnerId) {
+            io.to(partnerId).emit('partner-disconnected');
+            partners.delete(partnerId);
+            partners.delete(socket.id);
+        }
+
+        waitingUsers = waitingUsers.filter((user) => user.id !== socket.id);
+        waitingUsers.push(socket); // Add back to waiting queue for pairing
+
+        if (waitingUsers.length >= 2) {
+            const user1 = waitingUsers.shift();
+            const user2 = waitingUsers.shift();
+
+            partners.set(user1.id, user2.id);
+            partners.set(user2.id, user1.id);
+
+            user1.emit('paired', { partnerId: user2.id });
+            user2.emit('paired', { partnerId: user1.id });
+        }
+    });
+
+    // Handle user disconnection
     socket.on('disconnect', () => {
         console.log('User disconnected:', socket.id);
-        waiting_User = waiting_User.filter((user) => user.id !== socket.id);
+
+        waitingUsers = waitingUsers.filter((user) => user.id !== socket.id);
 
         const partnerId = partners.get(socket.id);
         if (partnerId) {
