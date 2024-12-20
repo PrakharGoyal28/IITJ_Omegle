@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom'; // Import useNavigate
+import { useState, useEffect, useRef } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
   Input,
@@ -11,52 +11,85 @@ import {
   IconButton,
   Container,
   Flex,
-} from '@chakra-ui/react';
-import { motion } from 'framer-motion';
-import { SunIcon, MoonIcon } from '@chakra-ui/icons';
+} from "@chakra-ui/react";
+import { motion } from "framer-motion";
+import { SunIcon, MoonIcon } from "@chakra-ui/icons";
+import { io } from "socket.io-client";
 
 function Chat() {
   const { colorMode, toggleColorMode } = useColorMode();
   const location = useLocation();
-  const navigate = useNavigate(); // Initialize navigate
-  const username = location.state?.username || 'Anonymous';
+  const navigate = useNavigate();
+  const username = location.state?.username || "Anonymous";
 
+  const socketRef = useRef(null);
   const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
+  const [newMessage, setNewMessage] = useState("");
+  const [partnerId, setPartnerId] = useState(null); // Store partner's ID
 
+  useEffect(() => {
+    socketRef.current = io("http://localhost:3000");
+
+    socketRef.current.on("connect", () => {
+      console.log("Connected to server:", socketRef.current.id);
+    });
+
+    // Listen for when a partner is found
+    socketRef.current.on("paired", ({ partnerId }) => {
+      console.log("Paired with:", partnerId);
+      setPartnerId(partnerId);
+    });
+
+    // Handle receiving a new message from the server
+    socketRef.current.on("receive-message", (message) => {
+      setMessages((prevMessages) => [...prevMessages, message]);
+    });
+
+    // Handle if partner disconnects
+    socketRef.current.on("partner-disconnected", () => {
+      // You can handle UI changes or automatic navigation if partner leaves
+      console.log("Your partner disconnected");
+    });
+
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
+    };
+  }, []);
+
+  // Handle sending a message
   const handleSendMessage = (e) => {
     e.preventDefault();
-    if (newMessage.trim()) {
+    if (newMessage.trim() && partnerId) {
       const message = {
         text: newMessage,
         sender: username,
         timestamp: new Date().toLocaleTimeString(),
-        isSelf: true,
       };
-      setMessages([...messages, message]);
-      // Simulate received message
-      setTimeout(() => {
-        const receivedMessage = {
-          text: `Reply to: ${newMessage}`,
-          sender: 'Other User',
-          timestamp: new Date().toLocaleTimeString(),
-          isSelf: false,
-        };
-        setMessages((prev) => [...prev, receivedMessage]);
-      }, 1000);
-      setNewMessage('');
+
+      // Emit the message to the server with the partnerId
+      socketRef.current.emit("send-message", { message, target: partnerId });
+
+      // Add the message to our local state
+      setMessages((prevMessages) => [
+        ...prevMessages,
+        { ...message, isSelf: true },
+      ]);
+
+      setNewMessage("");
     }
   };
 
   const handleExitChat = () => {
-    navigate('/'); // Redirect to home page
+    navigate("/");
   };
 
   return (
     <Box
       minH="100vh"
-      bg={colorMode === 'dark' ? 'gray.800' : 'gray.50'}
-      color={colorMode === 'dark' ? 'white' : 'gray.800'}
+      bg={colorMode === "dark" ? "gray.800" : "gray.50"}
+      color={colorMode === "dark" ? "white" : "gray.800"}
     >
       {/* Header */}
       <Flex
@@ -64,13 +97,13 @@ function Chat() {
         align="center"
         p={4}
         borderBottom="1px"
-        borderColor={colorMode === 'dark' ? 'gray.700' : 'gray.200'}
+        borderColor={colorMode === "dark" ? "gray.700" : "gray.200"}
       >
         <Text fontSize="2xl" fontWeight="bold" color="#4a90e2">
           IITJ-Omegle Chat
         </Text>
         <IconButton
-          icon={colorMode === 'dark' ? <SunIcon /> : <MoonIcon />}
+          icon={colorMode === "dark" ? <SunIcon /> : <MoonIcon />}
           onClick={toggleColorMode}
           variant="ghost"
           color="#4a90e2"
@@ -84,24 +117,30 @@ function Chat() {
           height="calc(100vh - 200px)"
           overflowY="auto"
           css={{
-            '&::-webkit-scrollbar': {
-              width: '4px',
+            "&::-webkit-scrollbar": {
+              width: "4px",
             },
-            '&::-webkit-scrollbar-track': {
-              width: '6px',
+            "&::-webkit-scrollbar-track": {
+              width: "6px",
             },
-            '&::-webkit-scrollbar-thumb': {
-              background: '#4a90e2',
-              borderRadius: '24px',
+            "&::-webkit-scrollbar-thumb": {
+              background: "#4a90e2",
+              borderRadius: "24px",
             },
           }}
         >
           {messages.map((message, index) => (
             <Box
               key={index}
-              alignSelf={message.isSelf ? 'flex-end' : 'flex-start'}
-              bg={message.isSelf ? '#4a90e2' : colorMode === 'dark' ? 'gray.700' : 'gray.200'}
-              color={message.isSelf ? 'white' : colorMode === 'dark' ? 'white' : 'black'}
+              alignSelf={message.isSelf ? "flex-end" : "flex-start"}
+              bg={
+                message.isSelf
+                  ? "#4a90e2"
+                  : colorMode === "dark"
+                  ? "gray.700"
+                  : "gray.200"
+              }
+              color={message.isSelf ? "white" : "black"}
               borderRadius="lg"
               px={4}
               py={2}
@@ -132,7 +171,7 @@ function Chat() {
           width="90%"
           maxW="container.md"
           spacing={2}
-          bg={colorMode === 'dark' ? 'gray.700' : 'white'}
+          bg={colorMode === "dark" ? "gray.700" : "white"}
           p={4}
           borderRadius="lg"
           boxShadow="lg"
@@ -143,7 +182,8 @@ function Chat() {
             placeholder="Type your message..."
             size="lg"
             borderColor="#4a90e2"
-            _focus={{ borderColor: '#4a90e2' }}
+            _focus={{ borderColor: "#4a90e2" }}
+            disabled={!partnerId} // Disable if no partner is connected yet
           />
           <Button
             type="submit"
@@ -153,12 +193,12 @@ function Chat() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             bgGradient="linear(to-r, #4a90e2, #357abd)"
+            disabled={!partnerId}
           >
             Send
           </Button>
         </HStack>
 
-        {/* Exit Chat Button */}
         <Button
           position="fixed"
           bottom={4}
