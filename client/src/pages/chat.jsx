@@ -25,7 +25,7 @@ function Chat() {
   const socketRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [partnerId, setPartnerId] = useState(null); // Store partner's ID
+  const [partnerId, setPartnerId] = useState(null); 
 
   useEffect(() => {
     socketRef.current = io("http://localhost:3000");
@@ -34,20 +34,16 @@ function Chat() {
       console.log("Connected to server:", socketRef.current.id);
     });
 
-    // Listen for when a partner is found
     socketRef.current.on("paired", ({ partnerId }) => {
       console.log("Paired with:", partnerId);
       setPartnerId(partnerId);
     });
 
-    // Handle receiving a new message from the server
     socketRef.current.on("receive-message", (message) => {
       setMessages((prevMessages) => [...prevMessages, message]);
     });
 
-    // Handle if partner disconnects
     socketRef.current.on("partner-disconnected", () => {
-      // You can handle UI changes or automatic navigation if partner leaves
       console.log("Your partner disconnected");
     });
 
@@ -58,7 +54,6 @@ function Chat() {
     };
   }, []);
 
-  // Handle sending a message
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (newMessage.trim() && partnerId) {
@@ -68,10 +63,8 @@ function Chat() {
         timestamp: new Date().toLocaleTimeString(),
       };
 
-      // Emit the message to the server with the partnerId
       socketRef.current.emit("send-message", { message, target: partnerId });
 
-      // Add the message to our local state
       setMessages((prevMessages) => [
         ...prevMessages,
         { ...message, isSelf: true },
@@ -183,7 +176,7 @@ function Chat() {
             size="lg"
             borderColor="#4a90e2"
             _focus={{ borderColor: "#4a90e2" }}
-            disabled={!partnerId} // Disable if no partner is connected yet
+            disabled={!partnerId} 
           />
           <Button
             type="submit"
