@@ -1,15 +1,24 @@
 import { Box, Button, FormControl, FormLabel, Input, Heading } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 function Authentication() {
-  console.log("Authentication component rendered");  // Debugging line
-
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleChatSubmit = (e) => {
     e.preventDefault();
     console.log("Username:", username);
+    if (username.trim()) {
+      navigate('/chat', { state: { username } });
+    }
+  };
+
+  const handleVideoChatSubmit = () => {
+    if (username.trim()) {
+      navigate('/videochat', { state: { username } });
+    }
   };
 
   return (
@@ -37,7 +46,7 @@ function Authentication() {
 
       <Box 
         as="form" 
-        onSubmit={handleSubmit} 
+        onSubmit={handleChatSubmit} 
         display="flex" 
         flexDirection="column" 
         alignItems="center" 
@@ -63,25 +72,54 @@ function Authentication() {
             placeholder="Username"
           />
         </FormControl>
-
-        <Button
-          type="submit"
-          as={motion.button}
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-          size="lg"
-          colorScheme="blue"
-          bgGradient="linear(to-r, #4a90e2, #357abd)"
-          color="white"
-          px={8}
-          py={6}
-          fontSize="xl"
-          _hover={{
-            bgGradient: "linear(to-r, #357abd, #4a90e2)",
-          }}
+        <Box 
+          display="flex"
+          flexDirection="row"
+          gap={4} 
+          justifyContent="center"
+          width="100%"
+          maxWidth="400px"
         >
-          Start Chatting
-        </Button>
+          <Button
+            type="button"
+            as={motion.button}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            size="lg"
+            colorScheme="blue"
+            bgGradient="linear(to-r, #4a90e2, #357abd)"
+            color="white"
+            px={8}
+            py={6}
+            onClick={handleVideoChatSubmit}
+            fontSize="xl"
+            _hover={{
+              bgGradient: "linear(to-r, #357abd, #4a90e2)",
+            }}
+          >
+            Start Video Chat
+          </Button>
+          
+          <Button
+            type="submit"
+            as={motion.button}
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+            size="lg"
+            colorScheme="blue"
+            bgGradient="linear(to-r, #4a90e2, #357abd)"
+            color="white"
+            px={8}
+            py={6}
+            fontSize="xl"
+            _hover={{
+              bgGradient: "linear(to-r, #357abd, #4a90e2)",
+            }}
+          >
+            Start Chatting
+          </Button>
+        </Box>
+
       </Box>
     </Box>
   );

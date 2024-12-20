@@ -3,7 +3,7 @@ import { Box, Button, Heading, ScaleFade } from "@chakra-ui/react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 
-import Authentication from './pages/Authentication.jsx';  // Import the Authentication component
+//import Authentication from './pages/Authentication.jsx';  // Import the Authentication component
 
 function App() {
   const navigate = useNavigate();  // Use this hook for navigation
