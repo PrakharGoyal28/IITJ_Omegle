@@ -42,7 +42,7 @@ io.on('connection',(socket)=>{
         });
         socket.on('disconnect', () => {
             console.log('User disconnected:', socket.id);
-            waitingUsers = waitingUsers.filter((user) => user.id !== socket.id);
+            waiting_User = waiting_User.filter((user) => user.id !== socket.id);
         });
         
     
