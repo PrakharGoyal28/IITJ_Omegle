@@ -50,6 +50,9 @@ function VideoChat() {
     });
 
     socketRef.current.on("offer", async ({ sdp, from }) => {
+      console.log("Received offer from:", from);
+      if (!peerConnectionRef.current) return;
+
       await peerConnectionRef.current.setRemoteDescription(
         new RTCSessionDescription(sdp)
       );
@@ -62,12 +65,15 @@ function VideoChat() {
     });
 
     socketRef.current.on("answer", async ({ sdp }) => {
+      console.log("Received answer");
+      if (!peerConnectionRef.current) return;
       await peerConnectionRef.current.setRemoteDescription(
         new RTCSessionDescription(sdp)
       );
     });
 
     socketRef.current.on("candidate", async ({ candidate }) => {
+      if (!peerConnectionRef.current) return;
       try {
         await peerConnectionRef.current.addIceCandidate(
           new RTCIceCandidate(candidate)
@@ -79,8 +85,8 @@ function VideoChat() {
 
     socketRef.current.on("partner-disconnected", () => {
       console.log("Partner disconnected");
-      setPartnerStream(null);
-      setPartnerId(null);
+      // Refresh the window as requested
+      window.location.reload();
     });
 
     return () => {
@@ -89,6 +95,7 @@ function VideoChat() {
       if (partnerStream) partnerStream.getTracks().forEach((track) => track.stop());
       if (peerConnectionRef.current) peerConnectionRef.current.close();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -118,7 +125,7 @@ function VideoChat() {
         };
 
         peerConnectionRef.current.onicecandidate = (event) => {
-          if (event.candidate) {
+          if (event.candidate && partnerId) {
             socketRef.current.emit("candidate", {
               target: partnerId,
               candidate: event.candidate,
@@ -132,7 +139,26 @@ function VideoChat() {
     };
 
     enableWebcam();
-  }, [partnerId]);
+  }, []);
+
+  // After we have both a local stream and partnerId, attempt to create and send an offer
+  useEffect(() => {
+    const tryCreateOffer = async () => {
+      if (partnerId && peerConnectionRef.current && localStream) {
+        // Only create an offer if no localDescription is set (to avoid duplicates)
+        if (!peerConnectionRef.current.localDescription) {
+          console.log("Creating offer...");
+          const offer = await peerConnectionRef.current.createOffer();
+          await peerConnectionRef.current.setLocalDescription(offer);
+          socketRef.current.emit("offer", {
+            target: partnerId,
+            sdp: offer,
+          });
+        }
+      }
+    };
+    tryCreateOffer();
+  }, [partnerId, localStream]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
@@ -149,9 +175,15 @@ function VideoChat() {
   };
 
   const handleSkipUser = () => {
+    // This needs a server-side handler for "skip-user"
     socketRef.current.emit("skip-user");
     setPartnerId(null);
     setPartnerStream(null);
+    if (peerConnectionRef.current) {
+      peerConnectionRef.current.close();
+      peerConnectionRef.current = null;
+    }
+    window.location.reload(); // Reload to reset
   };
 
   return (
@@ -234,7 +266,9 @@ function VideoChat() {
             <Button colorScheme="blue" size="sm" onClick={handleSkipUser}>
               Skip User
             </Button>
-            <Button colorScheme="red" size="sm" onClick={() => navigate("/")}>End Chat</Button>
+            <Button colorScheme="red" size="sm" onClick={() => navigate("/")}>
+              End Chat
+            </Button>
           </HStack>
         </Box>
 
@@ -253,7 +287,13 @@ function VideoChat() {
               <Box
                 key={index}
                 alignSelf={message.isSelf ? "flex-end" : "flex-start"}
-                bg={message.isSelf ? "#4a90e2" : colorMode === "dark" ? "gray.700" : "gray.200"}
+                bg={
+                  message.isSelf
+                    ? "#4a90e2"
+                    : colorMode === "dark"
+                    ? "gray.700"
+                    : "gray.200"
+                }
                 color={message.isSelf ? "white" : "black"}
                 borderRadius="lg"
                 px={4}

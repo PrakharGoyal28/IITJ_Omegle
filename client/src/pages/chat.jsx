@@ -45,6 +45,7 @@ function Chat() {
 
     socketRef.current.on("partner-disconnected", () => {
       console.log("Your partner disconnected");
+      window.location.relod(true);
     });
 
     return () => {

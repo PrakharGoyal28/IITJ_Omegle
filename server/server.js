@@ -104,6 +104,11 @@ io.on('connection', (socket) => {
             partners.delete(socket.id);
             io.to(partnerId).emit('partner-disconnected');
         }
+        else{
+            waiting_User.forEach(userSocket=>{
+                userSocket.emit('partner_disconnected');
+            });
+        }
     });
 });
 
