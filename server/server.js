@@ -105,8 +105,8 @@ io.on('connection', (socket) => {
             io.to(partnerId).emit('partner-disconnected');
         }
         else{
-            waiting_User.forEach(userSocket=>{
-                userSocket.emit('partner_disconnected');
+            waitingUsers.forEach(userSocket=>{
+                userSocket.emit('partner-disconnected');
             });
         }
     });
