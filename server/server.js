@@ -5,16 +5,17 @@ const http = require('http');
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: '*' } });
-
+const dotenv=require('dotenv')
+dotenv.config()
 app.use(cors());
 app.use(express.json());
 
-const port = 3000;
+const port = process.env.PORT;
+const io = new Server(server, { cors: { origin: '*' } });
+//const socket = io("http://localhost:<PORT>");
 
 let waitingUsers = [];
 const partners = new Map();
-
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
@@ -31,12 +32,14 @@ io.on('connection', (socket) => {
 
         user1.emit('paired', { partnerId: user2.id });
         user2.emit('paired', { partnerId: user1.id });
+        console.log(`waitingusers : `, waitingUsers.length)
     }
 
     // Handle WebRTC offer
     socket.on('offer', (data) => {
         const { target, sdp } = data;
         io.to(target).emit('offer', { sdp, from: socket.id });
+        console.log(`data1`, target)
     });
 
     // Handle WebRTC answer
@@ -49,18 +52,22 @@ io.on('connection', (socket) => {
     socket.on('candidate', (data) => {
         const { target, candidate } = data;
         io.to(target).emit('candidate', { candidate, from: socket.id });
+        console.log(`target`, target)
     });
 
     // Handle chat messages
     socket.on('send-message', (data) => {
         const { message, target } = data;
         io.to(target).emit('receive-message', message);
+        console.log(`message`, message)
     });
 
     // Handle stream sharing (if applicable)
     socket.on('send-stream', (data) => {
         const { streamId } = data;
         const partnerId = partners.get(socket.id);
+        console.log(`streamid`, streamId)
+        console.log(`partnedid`, partnerId)
         if (partnerId) {
             io.to(partnerId).emit('receive-stream', { streamId });
         }
