@@ -1,0 +1,8 @@
+services:
+    FRONT:
+    build:
+      context:'./client'
+      dockerfile:dockerFile
+
+    port:
+    - 80:80  
